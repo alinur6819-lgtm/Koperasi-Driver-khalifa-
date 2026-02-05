@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Factory Reset Koperasi</title>
+<style>
+body{
+ font-family:Arial;
+ background:#f4f6f9;
+ padding:40px;
+ text-align:center;
+}
+button{
+ padding:18px 30px;
+ font-size:18px;
+ border:none;
+ border-radius:12px;
+ background:#e74c3c;
+ color:white;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🔥 FACTORY RESET</h2>
+
+<p>
+Menghapus SELURUH database koperasi<br>
+(simpanan, pinjaman, kas, angsuran)
+</p>
+
+<button onclick="reset()">RESET SEKARANG</button>
+
+<script>
+function reset(){
+
+ localStorage.removeItem("koperasi_db");
+ localStorage.removeItem("koperasi_login");
+
+ alert("RESET SELESAI");
+
+ location.href="index.html";
+}
+</script>
+
+</body>
+</html>

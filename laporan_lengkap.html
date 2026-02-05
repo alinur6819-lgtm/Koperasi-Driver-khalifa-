@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laporan Lengkap</title>
+
+<style>db.simpanan.push({
+ id: Date.now(),
+ anggota_id: anggota,
+ jenis,
+ jumlah,
+ tanggal
+});
+body{margin:0;font-family:Arial;background:#f4f6f9}
+header{background:#1e90ff;color:#fff;padding:12px;display:flex;justify-content:space-between}
+.container{padding:12px}
+.card{
+ background:#fff;padding:12px;border-radius:10px;margin-bottom:10px;
+ box-shadow:0 2px 6px rgba(0,0,0,.15)
+}
+.grid{
+ display:grid;
+ grid-template-columns:repeat(2,1fr);
+ gap:10px;
+ margin-bottom:15px
+}
+.box{
+ background:#fff;padding:12px;border-radius:10px;font-weight:bold
+}
+table{width:100%;border-collapse:collapse;background:#fff}
+th{background:#eef2f7;padding:8px}
+td{padding:8px;border-bottom:1px solid #eee;text-align:center}
+</style>
+</head>
+
+<body>
+
+<header>
+<h3>📊 Laporan Lengkap</h3>
+<button onclick="location.href='dashboard.html'">Dashboard</button>
+</header>
+
+<div class="container">
+
+<div class="grid">
+ <div class="box">👥 Anggota<br><span id="jAnggota">0</span></div>
+ <div class="box">💰 Simpanan<br><span id="tSimpanan">Rp 0</span></div>
+ <div class="box">💳 Pinjaman<br><span id="tPinjaman">Rp 0</span></div>
+ <div class="box">📉 Sisa Pinjaman<br><span id="sPinjaman">Rp 0</span></div>
+ <div class="box">💵 Total Angsuran<br><span id="tAngsuran">Rp 0</span></div>
+</div>
+
+<div class="card">
+Kas Masuk : <b id="masuk">Rp 0</b><br>
+Kas Keluar : <b id="keluar">Rp 0</b><br>
+Saldo Kas : <b id="saldo">Rp 0</b>
+</div>
+<button onclick="exportPDF()">📄 Export Kas PDF</button>
+<br><br>
+<table>
+<thead>
+<tr>
+<th>Tanggal</th>
+<th>Keterangan</th>
+<th>Masuk</th>
+<th>Keluar</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="js/storage.js"></script>
+<script>
+function rupiah(n){
+ return "Rp "+Number(n||0).toLocaleString("id-ID");
+}
+
+function loadLaporan(){
+
+ const db = getDB();
+
+ db.anggota ??= [];
+ db.simpanan ??= [];
+ db.pinjaman ??= [];
+ db.kas ??= [];
+
+ document.getElementById("jAnggota").innerText = db.anggota.length;
+
+ /* =====================
+    SIMPANAN / PINJAMAN / ANGSURAN
+ ===================== */
+
+ let tS = 0; // simpanan
+ let tP = 0; // pinjaman cair
+ let sP = 0; // sisa pinjaman
+ let tA = 0; // total angsuran
+
+ db.simpanan.forEach(s=>{
+  tS += Number(s.jumlah||0);
+ });
+
+ db.pinjaman.forEach(p=>{
+  sP += Number(p.sisa||0);
+ });
+
+ db.kas.forEach(k=>{
+
+  // pencairan pinjaman
+  if(k.jenis==="KELUAR" && k.keterangan.includes("Pinjaman")){
+   tP += Number(k.jumlah||0);
+  }
+
+  // angsuran masuk
+  if(k.jenis==="MASUK" && k.keterangan.includes("Angsuran")){
+   tA += Number(k.jumlah||0);
+  }
+
+ });
+
+ document.getElementById("tSimpanan").innerText = rupiah(tS);
+ document.getElementById("tPinjaman").innerText = rupiah(tP);
+ document.getElementById("sPinjaman").innerText = rupiah(sP);
+ document.getElementById("tAngsuran").innerText = rupiah(tA);
+
+ /* =====================
+    KAS
+ ===================== */
+
+ let masuk = 0;
+ let keluar = 0;
+ list.innerHTML = "";
+
+ db.kas.sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+
+ db.kas.forEach(k=>{
+
+  if(k.jenis==="MASUK") masuk += Number(k.jumlah||0);
+  if(k.jenis==="KELUAR") keluar += Number(k.jumlah||0);
+
+  list.innerHTML += `
+   <tr>
+    <td>${k.tanggal}</td>
+    <td>${k.keterangan}</td>
+    <td>${k.jenis==="MASUK"?rupiah(k.jumlah):"-"}</td>
+    <td>${k.jenis==="KELUAR"?rupiah(k.jumlah):"-"}</td>
+   </tr>`;
+ });
+
+ document.getElementById("masuk").innerText = rupiah(masuk);
+ document.getElementById("keluar").innerText = rupiah(keluar);
+ document.getElementById("saldo").innerText = rupiah(masuk-keluar);
+}
+function exportPDF(){
+
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF();
+
+ const masuk = document.getElementById("masuk").innerText;
+ const keluar = document.getElementById("keluar").innerText;
+ const saldo = document.getElementById("saldo").innerText;
+
+ doc.setFontSize(14);
+ doc.text("LAPORAN KAS KOPERASI",14,15);
+
+ doc.setFontSize(10);
+ doc.text("Kas Masuk : "+masuk,14,25);
+ doc.text("Kas Keluar : "+keluar,14,31);
+ doc.text("Saldo Akhir : "+saldo,14,37);
+
+ const rows=[];
+
+ document.querySelectorAll("#list tr").forEach(tr=>{
+  const row=[];
+  tr.querySelectorAll("td").forEach(td=>{
+   row.push(td.innerText);
+  });
+  rows.push(row);
+ });
+
+ doc.autoTable({
+  head:[["Tanggal","Keterangan","Masuk","Keluar"]],
+  body:rows,
+  startY:45
+ });
+
+ doc.save("laporan_kas.pdf");
+}
+document.addEventListener("DOMContentLoaded", loadLaporan);
+</script>
+
+</body>
+</html>

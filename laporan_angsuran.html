@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laporan Angsuran</title>
+
+<style>
+:root{
+ --primary:#1e90ff;
+ --primary2:#4facfe;
+ --success:#2ecc71;
+ --danger:#ff5252;
+ --bg:#f2f4f8;
+}
+
+body{
+ margin:0;
+ font-family:Arial;
+ background:var(--bg);
+}
+
+/* HEADER */
+header{
+  background:#1e90ff;
+  color:white;
+  padding:12px 15px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+header h3{
+  margin:0;
+  font-size:16px;
+}
+
+header button{
+  background:#ff5252;
+  border:none;
+  color:white;
+  padding:7px 12px;
+  border-radius:6px;
+  font-size:13px;
+  cursor:pointer;
+}
+
+
+/* CONTAINER */
+.container{padding:15px}
+
+/* FILTER */
+select{
+ width:100%;
+ padding:10px;
+ border-radius:8px;
+ border:1px solid #ddd;
+ margin-bottom:10px;
+}
+
+/* CARD TOTAL */
+.total{
+ background:white;
+ padding:12px;
+ border-radius:12px;
+ margin-bottom:10px;
+ box-shadow:0 2px 6px rgba(0,0,0,.08);
+ font-weight:bold;
+}
+
+/* TABLE */
+table{
+ width:100%;
+ border-collapse:collapse;
+ background:white;
+ border-radius:12px;
+ overflow:hidden;
+ font-size:13px;
+}
+
+th{
+ background:#f1f5f9;
+ padding:10px;
+}
+
+td{
+ padding:8px;
+ border-bottom:1px solid #eee;
+ text-align:center;
+}
+
+tbody tr:nth-child(even){background:#fafafa}
+
+.lunas{color:green;font-weight:bold}
+.belum{color:red;font-weight:bold}
+
+/* BUTTON */
+button{
+ width:100%;
+ padding:10px;
+ border:none;
+ border-radius:10px;
+ color:white;
+ font-weight:bold;
+ margin-top:8px;
+}
+
+.pdf{background:var(--primary)}
+.wa{background:#25D366}
+
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body>
+
+<header>
+<h3>📄 Laporan Angsuran</h3>
+ <div>
+    <button onclick="location.href='dashboard.html'">dashboard</button>
+  </div>
+  <div>
+<button onclick="location.href='dashboard_laporan.html'">back</button>
+  </div>
+</header>
+
+<div class="container">
+
+<select id="filterAnggota" onchange="loadLaporan()">
+<option value="">-- Semua Anggota --</option>
+</select>
+
+<div class="total">
+Total Bayar : <span id="totalBayar">Rp 0</span><br>
+Sisa Pinjaman : <span id="sisaPinjaman">Rp 0</span><br>
+Status : <span id="status">-</span>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Tanggal</th>
+<th>Anggota</th>
+<th>Bayar</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+
+<button class="pdf" onclick="exportPDF()">📄 Export PDF</button>
+<button class="wa" onclick="exportWA()">📲 Export WhatsApp</button>
+
+</div>
+
+<script src="js/storage.js"></script>
+
+<script>
+let lastData=[];
+const totalBayarEl = document.getElementById("totalBayar");
+const sisaPinjamanEl = document.getElementById("sisaPinjaman");
+const statusEl = document.getElementById("status");
+function rupiah(n){
+ return "Rp "+Number(n||0).toLocaleString("id-ID");
+}
+
+/* LOAD ANGGOTA */
+function loadAnggota(){
+ const db=getDB();
+ const f=document.getElementById("filterAnggota");
+
+ f.innerHTML='<option value="">-- Semua Anggota --</option>';
+
+ (db.anggota||[]).forEach(a=>{
+  f.innerHTML+=`<option value="${a.id}">${a.nama}</option>`;
+ });
+}
+/* LOAD LAPORAN */
+
+function loadLaporan(){
+ const db=getDB();
+ const tbody=document.getElementById("list");
+ tbody.innerHTML="";
+
+ let totalBayar=0;
+ let sisa=0;
+
+ // gabungkan transaksi + angsuran
+ let data = [];
+
+ if(db.transaksi) data = data.concat(db.transaksi);
+ if(db.angsuran) data = data.concat(db.angsuran);
+
+ lastData = data.filter(t=>{
+  return !filterAnggota.value || t.anggota_id === filterAnggota.value;
+ });
+
+ lastData.forEach(t=>{
+  const a=db.anggota.find(x=>x.id===t.anggota_id);
+  totalBayar+=Number(t.jumlah||0);
+
+  tbody.innerHTML+=`
+   <tr>
+    <td>${t.tanggal||""}</td>
+    <td>${a?a.nama:""}</td>
+    <td>${rupiah(t.jumlah)}</td>
+   </tr>`;
+ });
+
+ if(filterAnggota.value){
+  (db.pinjaman||[])
+   .filter(p=>p.anggota_id===filterAnggota.value)
+   .forEach(p=>sisa+=Number(p.sisa||0));
+ }
+
+ totalBayarEl.innerText = rupiah(totalBayar);
+sisaPinjamanEl.innerText = rupiah(sisa);
+
+statusEl.innerText = sisa<=0 && totalBayar>0 ? "LUNAS" : "BELUM LUNAS";
+statusEl.className = sisa<=0 ? "lunas" : "belum";
+}
+ document.addEventListener("DOMContentLoaded",()=>{
+ loadAnggota();
+ loadLaporan();
+});
+</script>
+
+</body>
+</html>
